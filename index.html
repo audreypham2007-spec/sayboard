@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f5f7">
+<meta name="description" content="SayBoard: a free, offline AAC communication board with two-language support, modeling mode, and private on-device data.">
+<title>SayBoard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+/* Classic AAC look: flat, dense, square-ish buttons filled by word type, thin dark borders */
+:root{
+  --bg:#e8ecf0; --surface:#ffffff; --ink:#111111; --muted:#444444; --line:#2e3338; --bar:#dfe4e9; --barline:#9aa4ae;
+  --accent:#1d5fbf; --accent-ink:#ffffff; --strip:#ffffff; --hl:#ff2b2b;
+  --pron:#fff3a6; --verb:#c8f0c0; --desc:#c9ddff; --noun:#ffd9b0; --social:#ffc9e3; --q:#e3d2ff; --folder:#d7dde3; --misc:#ffffff;
+  --font:Arial,"Helvetica Neue",Helvetica,sans-serif;
+  --gap:5px; --radius:8px;
+}
+:root[data-theme="dark"]{--bg:#000;--surface:#1b1b1b;--ink:#f2f2f2;--muted:#cfcfcf;--line:#8a8a8a;--bar:#2a2a2a;--barline:#555;--strip:#111;
+  --pron:#5a5200;--verb:#1f4d1a;--desc:#1d3560;--noun:#5c3510;--social:#5a1f3d;--q:#3d2a63;--folder:#3a3a3a}
+:root[data-theme="contrast"]{--bg:#000;--surface:#000;--ink:#fff;--muted:#fff;--line:#fff;--bar:#000;--barline:#fff;--accent:#ffe600;--accent-ink:#000;--strip:#000;--hl:#ffe600;
+  --pron:#000;--verb:#000;--desc:#000;--noun:#000;--social:#000;--q:#000;--folder:#000}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.25 var(--font);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+[hidden]{display:none!important}
+/* message window */
+.stripRow{display:flex;gap:0;align-items:stretch;background:var(--bar);border-bottom:1px solid var(--barline);padding:4px}
+.strip{flex:1;min-height:74px;background:var(--strip);border:1.5px solid var(--line);border-radius:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,.12);display:flex;align-items:flex-end;gap:4px;padding:4px 6px;overflow-x:auto;text-align:left;margin-right:4px}
+.strip:empty::before{content:"";}
+.chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:44px;padding:0 3px;flex:0 0 auto}
+.chip .s{font-size:24px;line-height:1}.chip img{width:30px;height:30px;object-fit:cover}
+.chip .t{font-size:20px;font-weight:700;white-space:nowrap}
+.sbtn{min-width:66px;border:1px solid var(--barline);background:#fff;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,.15);font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px;margin-left:3px;color:#111}
+.sbtn .i{font-size:22px}
+.sbtn.speak{background:#f4f4f4;color:#111;border-color:var(--barline)}
+/* toolbar */
+.bar{display:flex;gap:3px;flex-wrap:wrap;align-items:stretch;padding:3px 4px;background:var(--bar);border-bottom:1px solid var(--barline)}
+.tb{border:1px solid var(--barline);background:#fff;color:#1d2329;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,.15);padding:6px 11px;font-weight:700;font-size:14px;display:flex;gap:5px;align-items:center}
+.tb.on{background:#1d2329;color:#fff;border-color:#1d2329}
+.tb.help{background:#fff;border-color:#c62828;color:#c62828}.tb.help.on{background:#c62828;color:#fff}
+.spacer{flex:1}
+:root[data-pal="bright"]{--pron:#ffe14d;--verb:#86d672;--desc:#7db8ff;--noun:#ffb15e;--social:#ff8fc8;--q:#c49cff;--folder:#cfd8dc}
+:root[data-pal="soft"]{--pron:#fffbe3;--verb:#e7f8e3;--desc:#e6f0ff;--noun:#fff0e0;--social:#ffe8f3;--q:#f2ebff;--folder:#eef1f4}
+:root[data-pal="candy"]{--pron:#fff59d;--verb:#b9f6ca;--desc:#b3e5fc;--noun:#ffccbc;--social:#f8bbd0;--q:#d1c4e9;--folder:#ffe0b2}
+:root[data-pal="candy"] body,:root[data-pal="candy"] .gridWrap{background:#fdf3ff}
+.step{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:#ff2b2b;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.wotw{position:absolute;top:2px;left:5px;color:#f5a400;font-size:20px;text-shadow:0 0 2px #fff}
+.chk{display:flex;gap:6px;align-items:center;font-weight:400}.banner .chk input{flex:0 0 auto;min-width:0;width:20px;height:20px}
+.stats{font-weight:700;margin-left:auto}
+.expBtn{border:1px solid #777;background:#fff;border-radius:999px;padding:3px 10px;font-weight:700;margin:2px;color:#111}
+#modelBanner{background:#fff7d1}
+.tb[data-c] .ic{color:var(--icc)} .tb.on .ic{color:#fff}
+.ic{width:18px;height:18px;flex:0 0 auto}.sbtn .ic{width:24px;height:24px}.sbtn .i{display:flex}.tb{gap:6px}
+.ends{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-left:3px;width:132px}.eb{border:1px solid var(--barline);background:#fff;color:#1d2329;border-radius:6px;font-weight:700;font-size:13px;padding:0}
+.histItem{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);padding:14px;font-size:20px;font-weight:700;border-radius:3px;margin-bottom:3px;color:var(--ink)}
+.cell.scan{outline:5px solid #ff2b2b;outline-offset:-5px}.scanRow{box-shadow:0 0 0 4px #ff2b2b inset}
+.tipline{font-weight:400;font-size:13px;flex-basis:100%}
+.crumb{font-weight:700;font-size:16px;padding:0 8px;align-self:center;color:#111}
+/* grid */
+.gridWrap{flex:1;min-height:0;overflow:auto;padding:3px;background:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(var(--cols,8),minmax(0,1fr));gap:var(--gap)}
+.grid.fit{height:100%}
+.grid.fit .cell{aspect-ratio:auto;max-height:none;min-height:0}
+.cell{position:relative;aspect-ratio:1/1;max-height:24vh;background:var(--c,var(--surface));border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:0 2px 0 rgba(0,0,0,.18);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;padding:3px 2px;min-width:0;color:var(--ink)}
+.cell .t{order:-1;font-weight:700;font-size:clamp(10px,1.45vw,17px);letter-spacing:.1px;color:#111;text-align:center;line-height:1.05;max-width:100%;overflow-wrap:normal;word-break:normal}
+.cell .s{flex:1;display:flex;align-items:center;font-size:clamp(20px,min(4vw,6vh),50px);line-height:1}
+.cell img,.cell .backic{flex:1;min-height:0;width:100%;max-width:82%;object-fit:contain;padding:2px 0}
+.cell .t2{font-size:clamp(9px,1.15vw,14px);color:var(--muted);text-align:center;line-height:1.05;overflow-wrap:normal}
+.cell.folder{border-radius:0 4px 4px 4px;padding-top:9px}
+.cell.folder{background:linear-gradient(var(--folder),var(--folder))}.cell.folder::before{content:"";position:absolute;top:-1.5px;left:-1.5px;width:40%;height:8px;background:#5f6b76;border-radius:8px 0 6px 0}
+.cell.pressed{filter:brightness(.88);transform:translateY(2px);box-shadow:none}
+.cell.masked{visibility:hidden}
+.editing .cell.masked{visibility:visible;opacity:.35}
+.cell.empty{border-style:dashed;background:transparent;color:var(--muted);justify-content:center}
+.cell.hl{outline:4px solid var(--hl);outline-offset:-4px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{outline-color:transparent}}
+.cell.back{--c:var(--folder);justify-content:center}
+.t-pron{--c:var(--pron)}.t-verb{--c:var(--verb)}.t-desc{--c:var(--desc)}.t-noun{--c:var(--noun)}.t-social{--c:var(--social)}.t-q{--c:var(--q)}.t-folder{--c:var(--folder)}
+:root[data-theme="contrast"] .cell{border-width:2px}
+:root[data-theme="contrast"] .t-pron{border-color:#ffe600}:root[data-theme="contrast"] .t-verb{border-color:#00ff6a}:root[data-theme="contrast"] .t-desc{border-color:#3ab0ff}
+:root[data-theme="contrast"] .t-noun{border-color:#ff9a3c}:root[data-theme="contrast"] .t-social{border-color:#ff5cc6}:root[data-theme="contrast"] .t-q{border-color:#c38bff}
+.editing .cell:not(.empty){outline:2px dashed var(--accent);outline-offset:-5px}
+.banner{background:#fff7c2;color:#111;border-bottom:1px solid var(--barline);padding:6px 8px;font-weight:700;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+.banner input{flex:1;min-width:160px;border:1px solid #777;border-radius:2px;padding:5px 8px;color:#000;background:#fff}
+/* keyboard */
+.kbd{display:grid;gap:3px}
+.krow{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.key{min-height:56px;border:1px solid var(--line);background:var(--surface);border-radius:3px;font-size:22px;font-weight:700}
+.preds{display:flex;gap:3px;flex-wrap:wrap;min-height:44px}
+.pred{border:1px solid var(--line);background:#eef4ff;border-radius:3px;padding:8px 12px;font-weight:700;font-size:18px;color:#111}
+.typed{font-size:26px;font-weight:700;padding:8px 10px;background:var(--strip);border:1px solid var(--line);border-radius:2px;min-height:54px}
+/* dialogs */
+dialog{border:1px solid #555;border-radius:4px;background:var(--surface);color:var(--ink);max-width:640px;width:calc(100% - 24px);padding:16px;-webkit-user-select:text;user-select:text}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{margin:0 0 10px;font-size:20px}
+dialog h3{margin:14px 0 6px;font-size:16px;border-bottom:1px solid var(--line);padding-bottom:3px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form label{display:grid;gap:3px;font-size:13px;color:var(--muted)}
+.form .full{grid-column:1/-1}
+.form input,.form select{border:1px solid #777;border-radius:2px;padding:7px 8px;background:var(--bg);color:var(--ink);width:100%;min-width:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.btn{border:1px solid #777;background:#f2f2f2;color:#111;border-radius:2px;padding:7px 12px;font-weight:700}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.warn{border-color:#b30000;color:#b30000;background:#fff}
+.note{font-size:13px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:250px;margin:10px auto}
+.pinpad button{min-height:54px;font-size:24px;font-weight:700;border:1px solid #777;border-radius:3px;background:#f2f2f2;color:#111}
+.pindots{text-align:center;font-size:28px;letter-spacing:10px;min-height:38px}
+.toast{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:3px;font-weight:700;z-index:50}
+@media (max-width:700px){.ends{width:96px}.eb{font-size:11px}.cell .t2{display:none}.tb{padding:5px 7px;font-size:12px}.sbtn{min-width:50px}.chip .t{font-size:16px}}
+@media (prefers-reduced-motion:reduce){.cell.hl{animation:none}}
+@media print{body{display:block;padding:0}.stripRow,.bar,.banner,.toast,dialog{display:none!important}.gridWrap{overflow:visible}.cell{break-inside:avoid;max-height:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}.cell.masked{visibility:visible}}
+/* ===== v7: dedicated-device look (light) ===== */
+:root[data-theme="device"]{--bg:#e4e8ec;--surface:#ffffff;--ink:#111;--muted:#444;--line:#7d8790;--bar:#f3f5f7;--barline:#c3cad1;--strip:#ffffff;--gap:4px;--radius:8px}
+:root[data-theme="device"] body{background:#e4e8ec}
+:root[data-theme="device"] .stripRow{background:linear-gradient(#fbfcfd,#eceff2);border-bottom:1px solid #c3cad1;padding:6px}
+:root[data-theme="device"] .strip{border:1.5px solid #9aa4ae;border-radius:10px;min-height:92px;box-shadow:inset 0 2px 4px rgba(0,0,0,.08)}
+:root[data-theme="device"] .sbtn,:root[data-theme="device"] .eb{background:linear-gradient(#ffffff,#eef1f4);color:#1d2329;border:1px solid #b7c0c8;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+:root[data-theme="device"] .sbtn.speak{background:linear-gradient(#5cc26a,#3a9a48);color:#fff;border-color:#2f7d3a}
+:root[data-theme="device"] .sbtn .ic{color:#3a4650}
+:root[data-theme="device"] .sbtn.speak .ic{color:#fff}
+:root[data-theme="device"] .bar{background:#f3f5f7;border-bottom:1px solid #c3cad1;padding:4px}
+:root[data-theme="device"] .tb{background:linear-gradient(#ffffff,#eef1f4);color:#1d2329;border:1px solid #b7c0c8;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+:root[data-theme="device"] .tb.on{background:linear-gradient(#4aa3f0,#1e78d6);color:#fff;border-color:#1a63b0}
+:root[data-theme="device"] .tb.on .ic{color:#fff}
+:root[data-theme="device"] .tb.help{background:linear-gradient(#ffffff,#fdeceb);color:#c62828;border-color:#e3a19d}
+:root[data-theme="device"] .tb.help .ic{color:#c62828}
+:root[data-theme="device"] .tb.help .ic path,:root[data-theme="device"] .tb.help .ic circle:last-child{stroke:#fff;fill:#fff}
+:root[data-theme="device"] .crumb{color:#1d2329;background:#fff;border:1px solid #b7c0c8;border-radius:8px;padding:4px 12px}
+:root[data-theme="device"] .cell{border:1.5px solid rgba(0,0,0,.35);border-radius:10px;box-shadow:0 2px 0 rgba(0,0,0,.14)}
+:root[data-theme="device"] .cell.folder{border-radius:0 10px 10px 10px}
+:root[data-theme="device"] .gridWrap{padding:4px}
+/* toolbar: icon over label like a device */
+.tb{flex-direction:column;justify-content:center;gap:2px!important;min-width:62px;padding:4px 6px!important;font-size:12px!important;line-height:1.05}
+.tb .ic{width:24px;height:24px}
+.bar .crumb{font-size:18px}
+/* message window */
+.chip img{width:46px!important;height:46px!important;object-fit:contain!important}
+.chip .s{font-size:36px!important}
+.chip .t{font-size:19px!important}
+.chip{min-width:54px}
+.sbtn{min-width:62px}
+/* button styles */
+:root[data-bstyle="border"] .cell:not(.empty){background:#fff!important;border:4px solid color-mix(in srgb,var(--c) 70%,#000)!important}
+:root[data-bstyle="band"] .cell:not(.empty){background:#fff!important;box-shadow:inset 0 30px 0 var(--c)!important}
+:root[data-bstyle="band"] .cell.folder:not(.empty){box-shadow:inset 0 30px 0 var(--folder)!important}
+:root[data-lbl="bottom"] .cell .t{order:3}
+:root[data-sym="text"] .cell img,:root[data-sym="text"] .cell>.s{display:none}
+:root[data-sym="text"] .cell{justify-content:center}
+:root[data-sym="text"] .cell .t{font-size:clamp(14px,2.2vw,28px)}
+:root[data-sym="symbol"] .cell .t,:root[data-sym="symbol"] .cell .t2{display:none}
+.cell .t{font-size:calc(clamp(10px,1.45vw,17px)*var(--ts,1))!important}
+:root[data-core="120"] .cell .t{font-size:calc(clamp(9px,1.2vw,15px)*var(--ts,1))!important}
+.cell.vbmask{visibility:hidden}
+/* word forms popup */
+.forms{position:fixed;z-index:60;background:#f3f5f7;border:1.5px solid #9aa4ae;border-radius:8px;padding:6px;display:flex;gap:5px;flex-wrap:wrap;max-width:min(560px,94vw);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.forms button{min-width:84px;min-height:64px;border:1.5px solid #000;border-radius:6px;background:var(--c,#fff);font-weight:700;font-size:18px;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.forms button img{width:34px;height:34px;object-fit:contain}
+.forms .fx{background:#5d646b;color:#fff;min-width:56px}
+/* big display */
+#bigDlg{max-width:none;width:100vw;height:100vh;max-height:none;margin:0;border:0;border-radius:0;background:#fff;color:#000;padding:20px;display:none;flex-direction:column}
+#bigDlg[open]{display:flex}
+#bigDlg.flip .bigBody{transform:rotate(180deg)}
+.bigBody{flex:1;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:18px}
+.bigW{display:flex;flex-direction:column;align-items:center}
+.bigW img{width:min(22vw,180px);height:min(22vw,180px);object-fit:contain}
+.bigW span{font-size:min(9vw,72px);font-weight:700}
+/* tools */
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.tool{min-height:140px;border:2px solid #000;border-radius:8px;background:#fff;font-size:22px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#111}
+.tool svg{width:56px;height:56px}
+.toolTop{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.toolTop h2{margin:0 8px 0 0;color:#111;font-size:22px}
+:root:not([data-theme="device"]):not([data-theme="dark"]):not([data-theme="contrast"]) .toolTop h2{color:#111}
+.ft{display:grid;grid-template-columns:1fr 1fr;gap:8px;height:calc(100% - 60px);min-height:300px}
+.ftp{border:3px solid #000;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-weight:700;color:#111}
+.ftp .h{font-size:34px;background:#000;color:#fff;border-radius:6px;padding:2px 20px}
+.ftp img{width:min(30vw,260px);height:min(30vw,260px);object-fit:contain}
+.ftp .w{font-size:40px}
+.timer{display:flex;flex-direction:column;align-items:center;gap:10px}
+.ring{width:min(60vh,70vw);height:min(60vh,70vw);border-radius:50%;border:6px solid #000;background:conic-gradient(#e53935 calc(var(--p,1)*360deg),#fff 0)}
+.tleft{font-size:44px;font-weight:700;color:#111}
+:root:not([data-theme="device"]):not([data-theme="dark"]):not([data-theme="contrast"]) .tleft{color:#111}
+.sched{display:grid;gap:6px}
+.step2{display:flex;align-items:center;gap:14px;border:2px solid #000;border-radius:8px;background:#fff;padding:8px 14px;font-size:28px;font-weight:700;color:#111;text-align:left}
+.step2 img{width:70px;height:70px;object-fit:contain}
+.step2.done{opacity:.35;text-decoration:line-through}
+.step2 .n{font-size:22px;background:#000;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.choice{display:grid;gap:8px;grid-template-columns:repeat(var(--n,2),1fr);height:calc(100% - 60px);min-height:260px}
+.scene{position:relative;max-width:100%;display:inline-block}
+.scene img{max-width:100%;max-height:70vh;display:block;border:3px solid #000;border-radius:8px}
+.hot{position:absolute;transform:translate(-50%,-50%);min-width:64px;min-height:64px;border-radius:50%;border:4px solid #ffeb3b;background:rgba(255,235,59,.25);font-weight:700;color:#000;font-size:15px;text-shadow:0 0 3px #fff,0 0 3px #fff}
+.sceneList{display:flex;gap:8px;flex-wrap:wrap}
+.sceneList button{border:2px solid #000;border-radius:8px;background:#fff;padding:4px;width:160px;color:#111;font-weight:700}
+.sceneList img{width:150px;height:100px;object-fit:cover;display:block}
+.toolTop input{border:1px solid #777;border-radius:3px;padding:7px;font-size:16px;color:#000;background:#fff}
+
+.crumb:empty{display:none}
+:root:not([data-theme="device"]) .tb.help.on .ic{color:#fff}
+@media (max-width:760px){
+ .stripRow{flex-wrap:wrap;gap:4px}
+ .strip{flex:1 1 100%;margin-right:0;min-height:70px!important}
+ .sbtn{flex:1 1 0;min-width:0;margin-left:0;min-height:48px}
+ .ends{flex:2 1 0;width:auto;margin-left:0}
+ .bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+ .bar::-webkit-scrollbar{display:none}
+ .tb{flex:0 0 auto;min-width:58px}
+ .bar .spacer{display:none}
+}
+</style>
+</head>
+<body>
+<div class="stripRow">
+  <button class="strip" id="strip" aria-label="Sentence. Tap to speak it." ></button>
+  <button class="sbtn speak" id="speakBtn" aria-label="Speak sentence"><span class="i"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Speak</button>
+  <div class="ends" aria-label="Word endings"><button class="eb" data-end="s">+s</button><button class="eb" data-end="ing">+ing</button><button class="eb" data-end="ed">+ed</button><button class="eb" data-end="er">+er</button><button class="eb" data-end="est">+est</button></div>
+  <button class="sbtn" id="backBtn" aria-label="Delete last word"><span class="i"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Back</button>
+  <button class="sbtn" id="clearBtn" aria-label="Clear sentence"><span class="i"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span>Clear</button>
+  <button class="sbtn" id="bigBtn" aria-label="Show the message in big letters"><span class="i"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 15l3-6 3 6M7 13h4M15 9v6M15 9h2a1.5 1.5 0 0 1 0 3h-2h2.3a1.5 1.5 0 0 1 0 3H15" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span>Show</button>
+  <button class="sbtn" id="copyBtn" aria-label="Copy or share the message"><span class="i"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 16V5a2 2 0 0 1 2-2h9" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Copy</button>
+</div>
+<nav class="bar" aria-label="Boards and tools">
+  <button class="tb" data-c style="--icc:#1e88e5" id="homeBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="currentColor"/></svg>Home</button>
+  <button class="tb help" data-quick="help"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M12 7v6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.5" fill="#fff"/></svg>Help</button>
+  <button class="tb" data-c style="--icc:#fb8c00" data-quick="scale"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="10" r="1.3" fill="currentColor"/><path d="M8 14.5q4 3.5 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Feelings</button>
+  <button class="tb" data-c style="--icc:#8e24aa" data-quick="fix"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8A8 8 0 1 0 20 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M15 8h5V3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Fix it</button>
+  <button class="tb" data-c style="--icc:#f9a825" data-quick="phrases"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4 6.5 20.3l1-6.2L3 9.7l6.2-.9z" fill="currentColor"/></svg>Phrases</button>
+  <button class="tb" data-c style="--icc:#546e7a" id="kbBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h1M10 10h1M14 10h1M18 10h0M7 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>ABC</button>
+  <button class="tb" data-c style="--icc:#00897b" id="histBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Recent</button>
+  <button class="tb" data-c style="--icc:#ef6c00" id="toolsBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.6 2.6-2.8-.4-.4-2.8z" fill="currentColor"/></svg>Tools</button>
+  <button class="tb" data-c style="--icc:#f5a400" id="heyBtn" title="Get attention"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" fill="currentColor"/><path d="M10 20a2 2 0 0 0 4 0" fill="currentColor"/></svg>Hey!</button>
+  <span class="crumb" id="crumb"></span>
+  <span class="spacer"></span>
+  <button class="tb" data-c style="--icc:#3949ab" id="langBtn" title="Switch spoken language"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12v9H8l-4 3v-3H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M13 11h8v8h-2v2l-3-2h-3z" fill="currentColor"/></svg>EN</button>
+  <button class="tb" data-c style="--icc:#6d4c41" id="modelBtn" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11V4.5a1.5 1.5 0 0 1 3 0V10l1-.2V8a1.5 1.5 0 0 1 3 0v2l1-.1a1.5 1.5 0 0 1 2 1.4V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L4.2 14a1.5 1.5 0 0 1 2.3-1.9L9 14.5z" fill="currentColor"/></svg>Model</button>
+  <button class="tb" data-c style="--icc:#455a64" id="setBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 1 0 12 8.5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Menu</button>
+</nav>
+<div class="banner" id="modelBanner" hidden>
+  <strong>Model mode</strong>
+  <input id="findInput" placeholder="Type a word or a short sentence, like: I want more juice" aria-label="Find a word or sentence">
+  <button class="btn pri" type="button" id="showMeBtn">▶ Show me</button>
+  <label class="chk"><input type="checkbox" id="partnerChk" checked> My taps don't go in the child's message</label>
+  <span class="stats" id="modelStats"></span>
+  <span class="tipline" id="stepLine"></span>
+  <span class="tipline" id="expLine"></span>
+  <span class="tipline" id="tipLine"></span></div>
+<div class="banner" id="editBanner" hidden>Edit mode: tap any button to change it. Tap a dashed square to add one.
+  <button class="btn" id="doneEdit">Done editing</button></div>
+<main class="gridWrap" id="gridWrap"><div class="grid" id="grid"></div></main>
+
+<!-- edit button -->
+<dialog id="editDlg"><form method="dialog" id="editForm">
+  <h2 id="editTitle">Edit button</h2>
+  <div class="form">
+    <label>Word or phrase (English)<input id="eEn" required maxlength="40"></label>
+    <label><span id="eL2Label">Second language</span><input id="eL2" maxlength="40"></label>
+    <label>Symbol (emoji)<input id="eSym" maxlength="8"></label>
+    <label>Word type (color)<select id="eType">
+      <option value="pron">People words (yellow)</option><option value="verb">Actions (green)</option><option value="desc">Describing (blue)</option>
+      <option value="noun">Things (orange)</option><option value="social">Social (pink)</option><option value="q">Questions and little words (purple)</option></select></label>
+    <label class="full">Photo (optional, replaces the symbol)<input id="ePhoto" type="file" accept="image/*"></label>
+    <label class="full" style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="eHide" type="checkbox" style="width:auto"> Hide this button for now (it keeps its spot)</label>
+  </div>
+  <p class="note" id="editNote"></p>
+  <div class="row">
+    <button class="btn pri" value="save" id="eSave">Save</button>
+    <button class="btn" type="button" id="ePhotoClear">Remove photo</button>
+    <button class="btn warn" type="button" id="eDelete">Delete button</button>
+    <button class="btn" value="cancel" formnovalidate>Cancel</button>
+  </div>
+</form></dialog>
+
+<!-- pin -->
+<dialog id="pinDlg"><h2 id="pinTitle">Enter adult PIN</h2><p class="note" id="pinNote">Settings are locked so buttons don't get changed by accident.</p>
+  <div class="pindots" id="pinDots"></div><div class="pinpad" id="pinPad"></div>
+  <div class="row" style="justify-content:center"><button class="btn" id="pinCancel">Cancel</button></div></dialog>
+
+<!-- settings -->
+<dialog id="setDlg"><form method="dialog">
+  <h2>Settings</h2>
+  <div class="row" style="margin-top:0"><button class="btn pri" type="button" id="editMode">Edit buttons</button><button class="btn" type="button" id="printBtn">Print this board</button></div>
+  <h3>Vocabulary</h3>
+  <div class="form">
+    <label>Home page size<select id="sCore"><option value="40">Core 40 (beginner, 8 x 5)</option><option value="80">Core 80 (10 x 8)</option><option value="120">Core 120 (12 x 10, most words)</option></select></label>
+    <label>Vocabulary builder<select id="sVb"><option value="off">Off, show every word</option><option value="first">First words only</option><option value="custom">Only the words I list</option></select></label>
+    <label class="full">Words to show when the builder is on "Only the words I list" (comma between words)<input id="sVbList" placeholder="want, more, go, stop, help, all done"></label>
+  </div>
+  <p class="note">The builder hides other words but keeps every button in its spot, so motor plans never change. Changing the home page size reloads the board.</p>
+  <h3>Languages</h3>
+  <div class="form">
+    <label>Second language<select id="sL2"><option value="none">None</option><option value="es">Spanish</option><option value="vi">Vietnamese</option></select></label>
+    <label>Show labels<select id="sShow"><option value="both">Both languages</option><option value="en">English only</option><option value="l2">Second language only</option></select></label>
+    <label>English voice<select id="sVoiceEn"></select></label>
+    <label>Second language voice<select id="sVoiceL2"></select></label>
+    <label>Speech speed<select id="sRate"><option value="0.7">Slow</option><option value="0.85">A little slow</option><option value="1">Normal</option><option value="1.15">Fast</option></select></label>
+    <label>Voice pitch<select id="sPitch"><option value="0.8">Lower</option><option value="1">Normal</option><option value="1.2">Higher</option><option value="1.4">Child-like</option></select></label>
+    <label>Volume<select id="sVol"><option value="0.5">Quiet</option><option value="0.8">Medium</option><option value="1">Full</option></select></label>
+    <label>After speaking the message<select id="sClr"><option value="0">Keep the message</option><option value="1">Clear the message</option></select></label>
+    <label>Speak each word when tapped<select id="sEach"><option value="1">Yes</option><option value="0">No, only the sentence</option></select></label>
+  </div>
+  <p class="note" id="voiceNote"></p>
+  <h3>Touch and look</h3>
+  <div class="form">
+    <label>Button colors<select id="sPal"><option value="classic">Classic</option><option value="bright">Bright</option><option value="soft">Soft pastel</option><option value="candy">Candy</option></select></label>
+    <label>Word of the week (gets a star)<input id="sWotw" maxlength="30" placeholder="for example: more"></label>
+    <label>Theme<select id="sTheme"><option value="device">Device (light)</option><option value="light">Light</option><option value="dark">Dark</option><option value="contrast">High contrast</option></select></label>
+    <label>Button style<select id="sBstyle"><option value="fill">Filled color</option><option value="border">White with colored border</option><option value="band">White with color band</option></select></label>
+    <label>Label position<select id="sLbl"><option value="top">Word above picture</option><option value="bottom">Word below picture</option></select></label>
+    <label>Show on buttons<select id="sSym"><option value="both">Picture and word</option><option value="symbol">Picture only</option><option value="text">Word only</option></select></label>
+    <label>Word size<select id="sTsize"><option value="0.85">Small</option><option value="1">Medium</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label>
+    <label>Hold before a tap counts<select id="sDwell"><option value="0">Off</option><option value="250">Short (0.25 s)</option><option value="500">Medium (0.5 s)</option><option value="900">Long (0.9 s)</option></select></label>
+    <label>Switch scanning<select id="sScan"><option value="0">Off</option><option value="1500">On, slow (1.5 s)</option><option value="1000">On, medium (1 s)</option><option value="700">On, fast (0.7 s)</option></select></label>
+    <label>Stay in a folder after a tap<select id="sStay"><option value="0">No, go back home</option><option value="1">Yes, stay</option></select></label>
+    <label>Button size<select id="sCols"><option value="10">Standard (fits the page size)</option><option value="6">Large (6 across, scrolls)</option><option value="4">Extra large (4 across, scrolls)</option></select></label>
+    <label>Adult PIN (4 digits)<input id="sPin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"></label>
+  </div>
+  <h3>Word use (stays on this device)</h3>
+  <div class="form"><label>Count which words are used<select id="sUsage"><option value="1">On</option><option value="0">Off</option></select></label></div>
+  <div id="usageBox"></div>
+  <div class="row"><button class="btn" type="button" id="usageCsv">Download word counts (CSV)</button><button class="btn warn" type="button" id="usageClear">Clear counts</button></div>
+  <h3>Save and share</h3>
+  <p class="note">Download a board file to back up your changes or move them to another tablet.</p>
+  <div class="row"><button class="btn" type="button" id="exportBtn">Download board file</button><button class="btn" type="button" id="importBtn">Load board file</button><input type="file" id="importFile" accept=".json,application/json" hidden>
+    <button class="btn warn" type="button" id="resetBtn">Reset to starter board</button></div>
+  <h3>About</h3>
+  <p class="note">SayBoard is free and works offline. Nothing leaves this device: no accounts, no tracking. Picture symbols: ARASAAC (arasaac.org). Author: Sergio Palao. Owner: Government of Aragón, Spain. License: CC BY-NC-SA 4.0, so SayBoard stays free and non-commercial. A few buttons use original SayBoard drawings or Mulberry Symbols (Steve Lee, CC BY-SA 4.0). Replace any picture with your own photo in Edit mode. Spanish and Vietnamese labels are a starting point; have a native speaker check them. SayBoard is a communication tool, not therapy. Work with an SLP to set it up.</p>
+  <div class="row"><button class="btn pri" value="close">Close</button></div>
+</form></dialog>
+
+<dialog id="bigDlg" aria-label="Big message"><div class="bigBody" id="bigBody"></div>
+  <div class="row" style="justify-content:center"><button class="btn pri" type="button" id="bigSay">Speak</button><button class="btn" type="button" id="bigFlip">Flip for partner</button><button class="btn" type="button" id="bigClose">Close</button></div></dialog>
+<script src="vocab.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const V=window.SAYBOARD_VOCAB;
+const KEY='sayboard.v1';
+const LANG2={none:{name:'',code:''},es:{name:'Spanish',code:'es'},vi:{name:'Vietnamese',code:'vi'}};
+
+/* ---------- storage ---------- */
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
+let store=load();
+store.settings=Object.assign({l2:'none',show:'both',voiceEn:'',voiceL2:'',rate:'0.85',each:'1',theme:'light',dwell:'0',cols:'10',pin:'1234',usage:'1',speakLang:'en',scan:'0',stay:'0',pal:'classic',wotw:'',core:'80',vb:'off',vbList:'',bstyle:'fill',lbl:'top',sym:'both',tsize:'1',pitch:'1',vol:'1',clr:'0'},store.settings||{});
+if(!store.v7){store.settings.theme='device';store.v7=1}
+store.custom=store.custom||{};   // id -> {en,l2,sym,type,img,hidden} or {deleted:true}
+store.added=store.added||{};     // boardId -> [{id,en,l2,sym,type,img}]
+store.usage=store.usage||{};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){toast('Storage is full. Use smaller photos.')}}
+const S=()=>store.settings;
+
+/* ---------- build buttons ---------- */
+const symURL=n=>(window.SAYBOARD_SYM&&window.SAYBOARD_SYM[n])||'symbols/'+n;
+const BASE={},NAMES={};
+const CORE_ID={'40':'home40','80':'home','120':'home120'}[store.settings.core]||'home';
+const CORE_COLS={'40':8,'80':10,'120':12}[store.settings.core]||10,CORE_ROWS={'40':5,'80':8,'120':10}[store.settings.core]||8;
+for(const id0 of V.order){if(id0==='home40'||id0==='home120')continue;const src=id0==='home'?CORE_ID:id0;const bd=V.boards[src];const id=id0;NAMES[id]=bd.name;
+  BASE[id]=bd.items.map((r,i)=>({id:src+':'+i,en:r[0],es:r[1],vi:r[2],type:r[3]==='folder'?'folder':r[3],emo:r[4],symf:r[5]||null,folder:r[6]||null}))}
+function boardName(id){const n=NAMES[id];if(!n)return'';const l2=S().l2;return S().show==='l2'&&l2!=='none'?n[l2==='es'?1:2]:n[0]}
+function btnData(b){const c=store.custom[b.id]||{};if(c.deleted)return null;
+  const l2key=S().l2;return{id:b.id,en:c.en??b.en,l2:c.l2??(l2key!=='none'?b[l2key]:''),sym:c.sym??b.emo,symf:c.sym?null:b.symf,type:c.type??b.type,img:c.img||null,hidden:!!c.hidden,folder:b.folder||null}}
+function boardItems(board){
+  const fixed=board==='home';
+  const list=BASE[board].map(b=>btnData(b));
+  const added=(store.added[board]||[]).map(a=>Object.assign({},a,store.custom[a.id]&&!store.custom[a.id].deleted?store.custom[a.id]:{},store.custom[a.id]&&store.custom[a.id].deleted?{deleted:true}:{})).filter(a=>!a.deleted);
+  if(fixed)return list; // home keeps every slot, deleted become empty slots
+  const out=list.filter(Boolean).concat(added);
+  return out;
+}
+
+/* ---------- state ---------- */
+let navStack=[],suggestLast=null,board='home',sentence=[],editing=false,modeling=false,findTarget=null;
+
+/* ---------- speech ---------- */
+let voices=[];
+function loadVoices(){voices=window.speechSynthesis?speechSynthesis.getVoices():[];fillVoiceSelects()}
+if(window.speechSynthesis){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+function pickVoice(lang){const want=lang==='en'?S().voiceEn:S().voiceL2;let v=voices.find(v=>v.voiceURI===want);
+  if(!v){const code=lang==='en'?'en':LANG2[S().l2].code;v=voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith(code)&&/us|mx|vn|es/i.test(v.lang))||voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith(code))}return v||null}
+function say(text,lang){if(!window.speechSynthesis||!text)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);
+  const v=pickVoice(lang);if(v){u.voice=v;u.lang=v.lang}else u.lang=lang==='en'?'en-US':(LANG2[S().l2].code||'en');u.rate=parseFloat(S().rate)||1;u.pitch=parseFloat(S().pitch)||1;u.volume=parseFloat(S().vol)||1;speechSynthesis.speak(u)}
+function speakLang(){return S().l2!=='none'&&S().speakLang==='l2'?'l2':'en'}
+
+/* ---------- render ---------- */
+function labelFor(d){const show=S().show,l2=S().l2!=='none'&&d.l2;
+  if(show==='l2'&&l2)return[d.l2,''];if(show==='en'||!l2)return[d.en,''];return[d.en,d.l2]}
+function cellHTML(d){const [t,t2]=labelFor(d);
+  const sym=d.img?'<img src="'+d.img+'" alt="">':d.symf?'<img src="'+symURL(d.symf)+'" alt="" loading="lazy" draggable="false">':'<span class="s" aria-hidden="true">'+esc(d.sym||'')+'</span>';
+  return sym+'<span class="t">'+esc(t)+'</span>'+(t2?'<span class="t2">'+esc(t2)+'</span>':'')}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function render(){
+  const g=$('grid');g.innerHTML='';document.body.classList.toggle('editing',editing);
+  const cols=board==='q_scale'?5:(S().cols==='10'?CORE_COLS:+S().cols);
+  g.style.setProperty('--cols',board==='kbd'?1:cols);
+  const fit=board!=='kbd'&&board!=='hist'&&board!=='tools'&&+S().cols===10;closeForms();g.classList.toggle('fit',fit);
+  $('toolsBtn').classList.toggle('on',board==='tools');$('crumb').textContent=board==='home'?'':board==='tools'?'Tools':board==='kbd'?'Keyboard':board==='hist'?'Recent':boardName(board);
+  $('homeBtn').classList.toggle('on',board==='home');
+  document.querySelectorAll('[data-quick]').forEach(b=>b.classList.toggle('on','q_'+b.dataset.quick===board));
+  $('kbBtn').classList.toggle('on',board==='kbd');$('histBtn').classList.toggle('on',board==='hist');
+  if(board==='kbd'){renderKbd(g);return}
+  if(board==='hist'){renderHist(g);return}
+  if(board==='tools'){renderTools(g);return}
+  const vbs=editing?null:vbSet();
+  const items=boardItems(board);
+  if(board!=='home'){ // back button first
+    const b=document.createElement('button');b.className='cell back t-folder';b.innerHTML='<svg class="backic" viewBox="0 0 100 100" aria-hidden="true"><path d="M60 20 L28 50 L60 80" fill="none" stroke="#222" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">Back</span>';b.setAttribute('aria-label','Back to home');
+    bindTap(b,()=>{let p=navStack.pop();if(!p){p='home';for(const k of Object.keys(BASE))for(const x of BASE[k])if(x.folder===board)p=k}go(p)});g.appendChild(b)}
+  items.forEach((d,i)=>{
+    const b=document.createElement('button');
+    if(!d){b.className='cell empty';b.innerHTML='<span class="t">+</span>';b.setAttribute('aria-label','Empty spot');if(editing)bindTap(b,()=>openEdit(null,board,i));else b.disabled=true;g.appendChild(b);return}
+    b.className='cell t-'+(d.folder?'folder folder':d.type)+(d.hidden?' masked':'')+(vbs&&!d.folder&&!vbs.has(d.en.toLowerCase())?' vbmask':'');b.dataset.id=d.id;b.innerHTML=cellHTML(d);
+    b.setAttribute('aria-label',(d.folder?'Folder: ':'')+labelFor(d).filter(Boolean).join(', '));
+    if(findTarget&&(findTarget.id===d.id||(d.folder&&findTarget.path&&findTarget.path.includes(d.folder)))){b.classList.add('hl');const n=findTarget.id===d.id?(findTarget.path.length+1):(findTarget.path.indexOf(d.folder)+1);b.insertAdjacentHTML('beforeend','<span class="step">'+n+'</span>')}
+    const wk=(S().wotw||'').trim().toLowerCase();if(wk&&!d.folder&&(d.en.toLowerCase()===wk||(d.l2||'').toLowerCase()===wk))b.insertAdjacentHTML('beforeend','<span class="wotw" title="Word of the week">★</span>');
+    bindTap(b,()=>tapButton(d,b),()=>showForms(d,b));g.appendChild(b)});
+  if(editing&&board!=='home'&&!board.startsWith('q_')){const b=document.createElement('button');b.className='cell empty';b.innerHTML='<span class="t">+ Add</span>';b.setAttribute('aria-label','Add a button');bindTap(b,()=>openEdit(null,board,-1));g.appendChild(b)}
+  if(editing&&board.startsWith('q_')){const b=document.createElement('button');b.className='cell empty';b.innerHTML='<span class="t">+ Add</span>';bindTap(b,()=>openEdit(null,board,-1));g.appendChild(b)}
+  if(fit){const rows=Math.ceil(g.children.length/cols);g.style.gridTemplateRows='repeat('+Math.max(rows,CORE_ROWS)+',minmax(0,1fr))';g.style.gridAutoRows='minmax(0,1fr)'}else{g.style.gridTemplateRows='';g.style.gridAutoRows=''}
+}
+function renderStrip(){const s=$('strip');s.innerHTML=sentence.map(w=>'<span class="chip">'+(w.img?'<img src="'+w.img+'" alt="">':w.symf?'<img src="'+symURL(w.symf)+'" alt="">':'<span class="s" aria-hidden="true">'+esc(w.sym||'')+'</span>')+'<span class="t">'+esc(w.text)+'</span></span>').join('');s.scrollLeft=s.scrollWidth}
+
+/* ---------- interaction ---------- */
+function bindTap(el,fn,lp){
+  let t0=0,timer=null,lpt=null,lpFired=false;
+  el.addEventListener('pointerdown',e=>{t0=Date.now();lpFired=false;const d=+S().dwell;if(d>0&&!editing){timer=setTimeout(()=>{fn()},d)}
+    else if(lp&&!editing&&!+S().scan){lpt=setTimeout(()=>{lpFired=true;lp()},600)}});
+  const stop=()=>{clearTimeout(timer);clearTimeout(lpt)};
+  el.addEventListener('pointerup',stop);el.addEventListener('pointerleave',stop);el.addEventListener('pointercancel',stop);
+  el.addEventListener('click',e=>{if(lpFired){lpFired=false;return}const d=+S().dwell;if(d>0&&!editing&&e.detail!==0){return}fn()}); // keyboard (detail 0) always works
+}
+function press(el){el.classList.add('pressed');setTimeout(()=>el.classList.remove('pressed'),150)}
+function tapButton(d,el){
+  if(editing){if(d.folder){go(d.folder);return}openEdit(d,board);return}
+  press(el);
+  if(d.folder){navStack.push(board);go(d.folder);return}
+  const lang=speakLang();const text=lang==='l2'&&d.l2?d.l2:d.en;
+  if(modeling){bumpModel();if($('partnerChk').checked){say(text,lang);if(board!=='home'&&!board.startsWith('q_')&&S().stay!=='1')setTimeout(()=>go('home'),400);return}}
+  sentence.push({text,sym:d.sym,symf:d.symf,img:d.img,lang,en:d.en});renderStrip();
+  if(S().each==='1')say(text,lang);
+  suggestLast=d;if(modeling)suggest(d);
+  if(S().usage==='1'){store.usage[d.en]=(store.usage[d.en]||0)+1;save()}
+  if(findTarget&&findTarget.id===d.id){findTarget=null;$('findInput').value=''}
+  if(board!=='home'&&!board.startsWith('q_')&&!modeling&&S().stay!=='1')setTimeout(()=>go('home'),250);
+}
+function go(b){if(b==='home')navStack=[];board=b;render();$('gridWrap').scrollTop=0}
+$('homeBtn').onclick=()=>{navStack=[];go('home')};
+document.querySelectorAll('[data-quick]').forEach(b=>b.onclick=()=>go('q_'+b.dataset.quick));
+$('kbBtn').onclick=()=>go('kbd');
+function speakSentence(){if(!sentence.length)return;const lang=sentence[sentence.length-1].lang;const text=sentence.map(w=>w.text).join(' ');say(text,lang);
+  const h=store.history=store.history||[];if(h[0]!==text){h.unshift(text);h.length=Math.min(h.length,30);save()}
+  if(S().clr==='1')setTimeout(()=>{sentence=[];renderStrip()},600)}
+function renderHist(g){const h=store.history||[];g.style.setProperty('--cols',1);g.classList.remove('fit');g.style.gridTemplateRows='';
+  if(!h.length){g.innerHTML='<p class="note" style="padding:12px">Sentences you speak show up here, so you can say them again with one tap.</p>';return}
+  h.forEach(t=>{const b=document.createElement('button');b.className='histItem';b.textContent=t;b.onclick=()=>say(t,'en');g.appendChild(b)})}
+const IRR={go:{ed:'went',s:'goes'},eat:{ed:'ate'},drink:{ed:'drank'},see:{ed:'saw'},make:{ed:'made'},get:{ed:'got'},give:{ed:'gave'},come:{ed:'came'},have:{ed:'had',s:'has'},do:{ed:'did',s:'does'},say:{ed:'said'},think:{ed:'thought'},know:{ed:'knew'},read:{ed:'read'},put:{ed:'put'},feel:{ed:'felt'},run:{ed:'ran'},sit:{ed:'sat'},sleep:{ed:'slept'},buy:{ed:'bought'},find:{ed:'found'},tell:{ed:'told'},write:{ed:'wrote'},catch:{ed:'caught'},hold:{ed:'held'},lose:{ed:'lost'},is:{ed:'was'},cut:{ed:'cut'},stand:{ed:'stood'},throw:{ed:'threw'},swim:{ed:'swam'},sing:{ed:'sang'},big:{er:'bigger',est:'biggest'},good:{er:'better',est:'best'},bad:{er:'worse',est:'worst'},hot:{er:'hotter',est:'hottest'},child:{s:'children'},man:{s:'men'},woman:{s:'women'},foot:{s:'feet'},mouse:{s:'mice'},tooth:{s:'teeth'},fish:{s:'fish'},sheep:{s:'sheep'}};
+function inflect(w,e){const lw=w.toLowerCase();if(IRR[lw]&&IRR[lw][e])return IRR[lw][e];
+  const cvc=/[^aeiou][aeiou][bdgmnpt]$/.test(lw)&&lw.length<=4;
+  if(e==='s'){if(/(s|sh|ch|x|z)$/.test(lw))return w+'es';if(/[^aeiou]y$/.test(lw))return w.slice(0,-1)+'ies';return w+'s'}
+  if(e==='ing'){if(/ie$/.test(lw))return w.slice(0,-2)+'ying';if(/[^e]e$/.test(lw)&&lw!=='be')return w.slice(0,-1)+'ing';if(cvc)return w+w.slice(-1)+'ing';return w+'ing'}
+  if(e==='ed'){if(/e$/.test(lw))return w+'d';if(/[^aeiou]y$/.test(lw))return w.slice(0,-1)+'ied';if(cvc)return w+w.slice(-1)+'ed';return w+'ed'}
+  if(e==='er'||e==='est'){const suf=e;if(/e$/.test(lw))return w+suf.slice(1);if(/[^aeiou]y$/.test(lw))return w.slice(0,-1)+'i'+suf;if(cvc)return w+w.slice(-1)+suf;return w+suf}return w}
+document.querySelectorAll('[data-end]').forEach(b=>b.onclick=()=>{const w=sentence[sentence.length-1];if(!w||w.lang!=='en'||/\s/.test(w.text)){toast('Endings work on the last English word');return}
+  w.text=inflect(w.text,b.dataset.end);renderStrip();if(S().each==='1')say(w.text,'en')});
+$('heyBtn').onclick=()=>{try{const A=new (window.AudioContext||window.webkitAudioContext)();[0,0.18].forEach((t,i)=>{const o=A.createOscillator(),g=A.createGain();o.frequency.value=i?660:880;g.gain.setValueAtTime(.25,A.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,A.currentTime+t+.35);o.connect(g).connect(A.destination);o.start(A.currentTime+t);o.stop(A.currentTime+t+.4)})}catch(e){}
+  const l=speakLang();setTimeout(()=>say(l==='l2'&&S().l2==='es'?'disculpe':l==='l2'&&S().l2==='vi'?'xin lỗi':'excuse me',l),450)};
+$('histBtn').onclick=()=>go('hist');
+
+$('strip').onclick=speakSentence;$('speakBtn').onclick=speakSentence;
+$('backBtn').onclick=()=>{sentence.pop();renderStrip()};
+$('clearBtn').onclick=()=>{sentence=[];renderStrip()};
+const LANGICON='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12v9H8l-4 3v-3H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M13 11h8v8h-2v2l-3-2h-3z" fill="currentColor"/></svg>';
+function langLabel(){const l2=S().l2;if(l2==='none'){$('langBtn').hidden=true;return}$('langBtn').hidden=false;$('langBtn').innerHTML=LANGICON+(S().speakLang==='l2'?l2.toUpperCase():'EN')}
+$('langBtn').onclick=()=>{S().speakLang=S().speakLang==='l2'?'en':'l2';save();langLabel();toast('Speaking '+(S().speakLang==='l2'?LANG2[S().l2].name:'English'))};
+
+/* model mode + find */
+const TIPS=['Tap the word while you say it. The child does not need to copy you.','Model one word more than the child uses. If they say "go", you model "go outside".','Talk about what is happening right now: snack, play, getting ready.','Wait 5 to 10 seconds after you model, so the child has time to respond.','Every attempt counts. Respond to what the child says, even if it was not the word you expected.','Use the board all day, not only during therapy.','Model core words the most: more, stop, go, help, want, all done.'];let tipI=0;
+setInterval(()=>{if(modeling){tipI=(tipI+1)%TIPS.length;$('tipLine').textContent='Tip: '+TIPS[tipI]}},12000);
+$('modelBtn').onclick=()=>{$('tipLine').textContent='Tip: '+TIPS[tipI];updateModelStats();$('expLine').textContent='';$('stepLine').textContent='';modeling=!modeling;if(modeling&&suggestLast)setTimeout(()=>suggest(suggestLast),0);
+$('modelBtn').classList.toggle('on',modeling);$('modelBtn').setAttribute('aria-pressed',modeling);$('modelBanner').hidden=!modeling;if(!modeling){findTarget=null;$('findInput').value='';render()}else $('findInput').focus()};
+// when a folder is highlighted on home and opened, keep highlight on the word inside
+const _go=go;
+
+/* ---------- Model mode tools ---------- */
+const today2=()=>new Date().toLocaleDateString('en-CA');
+function modelCount(){return (store.modelLog||{})[today2()]||0}
+function bumpModel(){store.modelLog=store.modelLog||{};store.modelLog[today2()]=modelCount()+1;save();updateModelStats()}
+function updateModelStats(){const w=(S().wotw||'').trim();$('modelStats').textContent='Modeled today: '+modelCount()+(w?' · Word of the week: '+w:'')}
+const PARENT={};for(const b of Object.keys(BASE))for(const d of BASE[b])if(d.folder)PARENT[d.folder]=b;
+function pathTo(b){const p=[];let x=b;while(x&&x!=='home'){p.unshift(x);x=PARENT[x]}return p}
+function findWord(q){q=q.toLowerCase().trim();if(!q)return null;let best=null;
+  for(const b of Object.keys(BASE).filter(k=>!k.startsWith('q_'))){for(const d of boardItems(b)){if(!d||d.folder)continue;
+    const en=d.en.toLowerCase(),l2=(d.l2||'').toLowerCase();
+    if(en===q||l2===q)return{d,board:b,path:pathTo(b)};if(!best&&(en.startsWith(q)))best={d,board:b,path:pathTo(b)}}}return best}
+function stepsText(hit){const names=hit.path.map(p=>boardName(p));return [...names,hit.d.en].map((n,i)=>'Step '+(i+1)+': '+n).join('  →  ')}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));let playing=false;
+async function showMe(hits){if(playing)return;playing=true;
+  for(const hit of hits){findTarget={id:hit.d.id,path:hit.path};go('home');await sleep(700);
+    for(const p of hit.path){go(p);await sleep(800)}
+    const el=document.querySelector('#grid .cell[data-id="'+CSS.escape(hit.d.id)+'"]');if(el){el.classList.add('pressed');setTimeout(()=>el.classList.remove('pressed'),300)}
+    say(speakLang()==='l2'&&hit.d.l2?hit.d.l2:hit.d.en,speakLang());bumpModel();await sleep(1100)}
+  if(hits.length>1){await sleep(200);say(hits.map(h=>speakLang()==='l2'&&h.d.l2?h.d.l2:h.d.en).join(' '),speakLang())}
+  findTarget=null;go('home');playing=false}
+function parseModel(){const q=$('findInput').value.trim();const words=q.split(/\s+/).filter(Boolean);const hits=[],missing=[];
+  for(const w of words){const h=findWord(w);if(h)hits.push(h);else missing.push(w)}return{hits,missing,q}}
+$('findInput').oninput=()=>{const {hits,missing,q}=parseModel();findTarget=null;
+  if(!q){$('stepLine').textContent='';render();return}
+  if(hits.length===1&&q.split(/\s+/).length===1){findTarget={id:hits[0].d.id,path:hits[0].path};$('stepLine').textContent=stepsText(hits[0]);if(board!=='home')go('home');else render();return}
+  $('stepLine').textContent=hits.length?('Sentence: '+hits.map(h=>h.d.en).join(' ')+(missing.length?'  (not on the board: '+missing.join(', ')+')':'')+'. Press Show me to play it.'):'Not on the board yet. Add it in Edit mode.';render()};
+$('showMeBtn').onclick=()=>{const {hits}=parseModel();if(hits.length)showMe(hits);else toast('Type a word or a short sentence first')};
+const EXP={noun:['want X','more X','X please','my X'],verb:['I X','X more','you X','X it'],desc:['X one','too X'],pron:['X want','X go','X like'],social:['X please'],q:['X go','X it']};
+const SPECIAL={more:['want more','more please','more juice'],go:['go home','go outside','I go'],stop:['stop it','stop please'],want:['I want','want more','want juice'],help:['help me','help please'],eat:['eat snack','I eat'],drink:['drink water','I drink'],play:['play ball','play with me'],look:['look at me','look there'],open:['open it','open door'],'all done':['all done eating','I all done'],yes:['yes please'],no:['no thanks','no more'],big:['big ball','too big'],hot:['too hot'],cold:['too cold'],I:['I want','I go','I like'],you:['you go','you help'],like:['I like','like it'],get:['get it','get ball'],turn:['my turn','your turn'],again:['do it again','play again']};
+function suggest(d){if(!modeling||!d||d.folder)return;const list=SPECIAL[d.en]||(EXP[d.type]||['X more']).map(t=>t.replace('X',d.en));
+  $('expLine').innerHTML='Try modeling next: '+list.map(t=>'<button class="expBtn" type="button">'+esc(t)+'</button>').join(' ');
+  $('expLine').querySelectorAll('.expBtn').forEach(b=>b.onclick=()=>{$('findInput').value=b.textContent;$('findInput').oninput();showMe(parseModel().hits)})}
+
+/* keyboard */
+let typed='';
+function allWords(){const set=new Map();for(const b of Object.keys(BASE)){for(const d of boardItems(b)){if(d&&!d.folder)set.set(d.en.toLowerCase(),d)}}return set}
+function renderKbd(g){
+  const wrap=document.createElement('div');wrap.className='kbd';
+  const t=document.createElement('div');t.className='typed';t.textContent=typed||' ';t.setAttribute('aria-live','polite');
+  const preds=document.createElement('div');preds.className='preds';
+  if(typed){const w=typed.split(' ').pop().toLowerCase();if(w){let n=0;for(const [k,d] of allWords()){if(k.startsWith(w)&&n<8){n++;const p=document.createElement('button');p.className='pred';p.textContent=(d.sym||'')+' '+d.en;p.onclick=()=>{const parts=typed.split(' ');parts[parts.length-1]=d.en;typed=parts.join(' ')+' ';render()};preds.appendChild(p)}}}}
+  wrap.append(t,preds);
+  const rows=['qwertyuiop','asdfghjkl\'','zxcvbnm,.?'];
+  for(const r of rows){const row=document.createElement('div');row.className='krow';for(const ch of r){const k=document.createElement('button');k.className='key';k.textContent=ch;k.onclick=()=>{typed+=ch;render()};row.appendChild(k)}wrap.appendChild(row)}
+  const last=document.createElement('div');last.className='krow';last.style.gridTemplateColumns='2fr 4fr 2fr 2fr';
+  const mk=(txt,fn)=>{const k=document.createElement('button');k.className='key';k.textContent=txt;k.onclick=fn;return k};
+  last.append(mk('⌫',()=>{typed=typed.slice(0,-1);render()}),mk('space',()=>{typed+=' ';render()}),mk('🔊 Say',()=>{if(typed.trim())say(typed.trim(),'en')}),mk('➕ Add',()=>{if(typed.trim()){sentence.push({text:typed.trim(),sym:'⌨️',lang:'en'});renderStrip();typed='';render()}}));
+  wrap.appendChild(last);g.appendChild(wrap)}
+
+/* ---------- PIN ---------- */
+let pinCb=null,pinVal='';
+function askPin(cb){pinCb=cb;pinVal='';$('pinDots').textContent='';$('pinDlg').showModal()}
+(function(){const pad=$('pinPad');['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(k=>{const b=document.createElement('button');b.textContent=k;if(!k){b.disabled=true;b.style.visibility='hidden'}
+  b.onclick=()=>{if(k==='⌫')pinVal=pinVal.slice(0,-1);else if(pinVal.length<4)pinVal+=k;$('pinDots').textContent='●'.repeat(pinVal.length);
+    if(pinVal.length===4){if(pinVal===S().pin){$('pinDlg').close();const cb=pinCb;pinCb=null;cb&&cb()}else{$('pinDots').textContent='Try again';pinVal=''}}};pad.appendChild(b)})})();
+$('pinCancel').onclick=()=>$('pinDlg').close();
+$('setBtn').onclick=()=>askPin(openSettings);
+
+/* ---------- settings ---------- */
+function fillVoiceSelects(){
+  const mk=(sel,code,cur)=>{if(!sel)return;const list=voices.filter(v=>v.lang&&v.lang.toLowerCase().startsWith(code));
+    sel.innerHTML='<option value="">Automatic</option>'+list.map(v=>'<option value="'+esc(v.voiceURI)+'"'+(v.voiceURI===cur?' selected':'')+'>'+esc(v.name+' ('+v.lang+')')+'</option>').join('');return list.length};
+  const n1=mk($('sVoiceEn'),'en',S().voiceEn);const c2=LANG2[S().l2].code;const n2=c2?mk($('sVoiceL2'),c2,S().voiceL2):0;
+  if(!c2&&$('sVoiceL2'))$('sVoiceL2').innerHTML='<option value="">Pick a second language first</option>';
+  if($('voiceNote'))$('voiceNote').textContent=!window.speechSynthesis?'This browser has no text-to-speech. Try Chrome, Edge, or Safari.':(c2&&!n2?'This device has no '+LANG2[S().l2].name+' voice installed. Add one in your device\'s language or speech settings, then reopen SayBoard.':'')}
+function openSettings(){const s=S();$('sL2').value=s.l2;$('sShow').value=s.show;$('sRate').value=s.rate;$('sEach').value=s.each;$('sTheme').value=s.theme;$('sDwell').value=s.dwell;$('sCols').value=s.cols;$('sPin').value=s.pin;$('sUsage').value=s.usage;$('sScan').value=s.scan;$('sPal').value=s.pal;$('sWotw').value=s.wotw;$('sStay').value=s.stay;$('sCore').value=s.core;$('sVb').value=s.vb;$('sVbList').value=s.vbList;$('sBstyle').value=s.bstyle;$('sLbl').value=s.lbl;$('sSym').value=s.sym;$('sTsize').value=s.tsize;$('sPitch').value=s.pitch;$('sVol').value=s.vol;$('sClr').value=s.clr;
+  fillVoiceSelects();renderUsage();$('setDlg').showModal()}
+const bindSet=(id,key,after)=>$(id).addEventListener('change',()=>{S()[key]=$(id).value;save();after&&after()});
+bindSet('sL2','l2',()=>{if(S().l2==='none')S().speakLang='en';fillVoiceSelects();langLabel();render()});
+bindSet('sShow','show',render);bindSet('sVoiceEn','voiceEn');bindSet('sVoiceL2','voiceL2');bindSet('sRate','rate');bindSet('sEach','each');
+bindSet('sTheme','theme',applyTheme);bindSet('sDwell','dwell');bindSet('sCols','cols',render);bindSet('sUsage','usage');bindSet('sScan','scan',startScan);bindSet('sPal','pal',applyTheme);bindSet('sWotw','wotw',render);bindSet('sStay','stay');
+bindSet('sCore','core',()=>location.reload());bindSet('sVb','vb',render);bindSet('sVbList','vbList',render);bindSet('sBstyle','bstyle',applyLook);bindSet('sLbl','lbl',applyLook);bindSet('sSym','sym',applyLook);bindSet('sTsize','tsize',applyLook);bindSet('sPitch','pitch');bindSet('sVol','vol');bindSet('sClr','clr');
+$('sPin').addEventListener('change',()=>{const v=$('sPin').value;if(/^\d{4}$/.test(v)){S().pin=v;save();toast('PIN saved')}else{$('sPin').value=S().pin;toast('PIN must be 4 digits')}});
+function applyTheme(){document.documentElement.dataset.theme=S().theme==='light'?'':S().theme;document.documentElement.dataset.pal=S().pal||'classic';document.querySelector('meta[name=theme-color]').content=S().theme==='light'?'#d6d6d6':S().theme==='device'?'#f3f5f7':'#000000'}
+function renderUsage(){const rows=Object.entries(store.usage).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  $('usageBox').innerHTML=rows.length?'<table><tr><th>Word</th><th>Times used</th></tr>'+rows.map(r=>'<tr><td>'+esc(r[0])+'</td><td>'+r[1]+'</td></tr>').join('')+'</table>':'<p class="note">No words counted yet.</p>'}
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+$('usageCsv').onclick=()=>download('sayboard-word-counts.csv','word,count\n'+Object.entries(store.usage).sort((a,b)=>b[1]-a[1]).map(r=>'"'+r[0].replace(/"/g,'""')+'",'+r[1]).join('\n'),'text/csv');
+let armed={};function confirm2(btn,label,fn){if(armed[btn.id]&&Date.now()-armed[btn.id]<3000){armed[btn.id]=0;btn.textContent=label;fn()}else{armed[btn.id]=Date.now();const old=label;btn.textContent='Tap again to confirm';setTimeout(()=>{btn.textContent=old},3000)}}
+$('usageClear').onclick=e=>confirm2(e.currentTarget,'Clear counts',()=>{store.usage={};save();renderUsage()});
+$('exportBtn').onclick=()=>download('sayboard-board.json',JSON.stringify({app:'SayBoard',version:1,custom:store.custom,added:store.added,settings:Object.assign({},S(),{pin:undefined})},null,1),'application/json');
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(j.app!=='SayBoard')throw 0;store.custom=j.custom||{};store.added=j.added||{};if(j.settings)Object.assign(store.settings,j.settings,{pin:S().pin});save();applyTheme();langLabel();render();openSettings();toast('Board loaded')}catch(_){toast('That file is not a SayBoard board file')}e.target.value=''};
+$('resetBtn').onclick=e=>confirm2(e.currentTarget,'Reset to starter board',()=>{store.custom={};store.added={};save();render();toast('Starter board restored')});
+$('printBtn').onclick=()=>{$('setDlg').close();setTimeout(()=>window.print(),200)};
+$('editMode').onclick=()=>{$('setDlg').close();editing=true;$('editBanner').hidden=false;render()};
+$('doneEdit').onclick=()=>{editing=false;$('editBanner').hidden=true;render()};
+
+/* ---------- edit dialog ---------- */
+let editCtx=null,pendingImg=undefined;
+function openEdit(d,b,slot){editCtx={d,board:b,slot};pendingImg=undefined;
+  $('editTitle').textContent=d?'Edit button':'Add a button';
+  $('eEn').value=d?d.en:'';$('eL2').value=d?d.l2||'':'';$('eSym').value=d?d.sym||'':'';$('eType').value=d?d.type:'noun';$('eHide').checked=d?d.hidden:false;$('ePhoto').value='';
+  $('eL2Label').textContent=S().l2==='none'?'Second language (turn on in Settings)':LANG2[S().l2].name;
+  $('eDelete').hidden=!d;$('ePhotoClear').hidden=!(d&&d.img);
+  $('editNote').textContent=b==='home'?'Home buttons keep their spot, so motor memory stays the same. Deleting leaves an empty spot you can fill later.':'';
+  $('editDlg').showModal();$('eEn').focus()}
+$('ePhoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;pendingImg=await shrink(f,256)};
+$('ePhotoClear').onclick=()=>{pendingImg=null;$('ePhotoClear').hidden=true;toast('Photo will be removed when you save')};
+function shrink(file,max){return new Promise(res=>{const img=new Image();img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',.82))};img.onerror=()=>res(undefined);img.src=URL.createObjectURL(file)})}
+$('editForm').addEventListener('submit',e=>{
+  if(e.submitter&&e.submitter.value!=='save')return;
+  const {d,board:b,slot}=editCtx;const val={en:$('eEn').value.trim(),l2:$('eL2').value.trim(),sym:$('eSym').value.trim(),type:$('eType').value,hidden:$('eHide').checked};
+  if(!val.en){e.preventDefault();return}
+  if(d){const c=Object.assign({},store.custom[d.id]||{},val);if(pendingImg!==undefined)c.img=pendingImg;delete c.deleted;store.custom[d.id]=c}
+  else if(b==='home'&&slot>=0){const id=BASE.home[slot].id;store.custom[id]=Object.assign(val,{img:pendingImg||null})}
+  else{const id=b+':a'+Date.now();(store.added[b]=store.added[b]||[]).push(Object.assign({id},val,{img:pendingImg||null}))}
+  save();render()});
+$('eDelete').onclick=e=>confirm2(e.currentTarget,'Delete button',()=>{const {d,board:b}=editCtx;
+  if(String(d.id).includes(':a')){store.added[b]=(store.added[b]||[]).filter(a=>a.id!==d.id);delete store.custom[d.id]}else store.custom[d.id]={deleted:true};
+  save();$('editDlg').close();render()});
+
+/* ---------- misc ---------- */
+let tt;function toast(m){let t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=m;clearTimeout(tt);tt=setTimeout(()=>t.remove(),2200)}
+document.addEventListener('contextmenu',e=>{if(!editing&&e.target.closest('.cell'))e.preventDefault()});
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+let scanT=null,scanRow=-1,scanCol=-1,scanStage=0;
+function scanCells(){return [...document.querySelectorAll('#grid .cell:not(.empty):not(.masked)')]}
+function rowsOf(cells){const rows=[];let top=null;for(const c of cells){const t=c.offsetTop;if(top===null||Math.abs(t-top)>4){rows.push([]);top=t}rows[rows.length-1].push(c)}return rows}
+function clearScan(){document.querySelectorAll('.scan,.scanRow').forEach(e=>e.classList.remove('scan','scanRow'))}
+function startScan(){clearInterval(scanT);clearScan();scanStage=0;scanRow=-1;const ms=+S().scan;if(!ms)return;
+  scanT=setInterval(()=>{if(editing||document.querySelector('dialog[open]'))return;const rows=rowsOf(scanCells());if(!rows.length)return;clearScan();
+    if(scanStage===0){scanRow=(scanRow+1)%rows.length;rows[scanRow].forEach(c=>c.classList.add('scanRow'))}
+    else{const r=rows[scanRow]||[];scanCol=(scanCol+1)%(r.length+1);if(scanCol===r.length){scanStage=0;scanRow=-1;return}r[scanCol].classList.add('scan')}},ms)}
+function scanSelect(){const rows=rowsOf(scanCells());
+  if(scanStage===0&&scanRow>=0){scanStage=1;scanCol=-1;clearScan();return}
+  if(scanStage===1&&scanCol>=0){const c=(rows[scanRow]||[])[scanCol];scanStage=0;scanRow=-1;clearScan();if(c){scanning=true;c.click();scanning=false}}}
+let scanning=false;
+const scanOn=()=>+S().scan&&!editing&&!document.querySelector('dialog[open]');
+document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanOn()&&document.activeElement.tagName!=='INPUT'){e.preventDefault();scanSelect()}});
+document.addEventListener('pointerdown',e=>{if(scanOn()&&!e.target.closest('.bar,.stripRow,.banner')){e.preventDefault();scanSelect()}},true);
+document.addEventListener('click',e=>{if(scanOn()&&!scanning&&e.isTrusted&&!e.target.closest('.bar,.stripRow,.banner')){e.preventDefault();e.stopImmediatePropagation()}},true);
+/* ===== v7 features ===== */
+/* --- look settings --- */
+function applyLook(){const r=document.documentElement,s=S();r.dataset.bstyle=s.bstyle;r.dataset.lbl=s.lbl;r.dataset.sym=s.sym;r.dataset.core=s.core;r.style.setProperty('--ts',s.tsize)}
+/* --- vocabulary builder --- */
+const FIRSTWORDS=['i','you','want','go','stop','more','all done','help','like','eat','drink','play','look','get','open','in','on','not','yes','no','it','that','my','turn','up','down','big','little','what','where','please','hi','bye'];
+function vbSet(){const v=S().vb;if(v==='first')return new Set(FIRSTWORDS);if(v==='custom')return new Set(S().vbList.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));return null}
+/* --- word forms (long press) --- */
+const PRON={i:['I','me','my','mine','myself'],you:['you','your','yours','yourself'],he:['he','him','his','himself'],she:['she','her','hers','herself'],it:['it','its','itself'],we:['we','us','our','ours'],they:['they','them','their','theirs'],me:['me','my','mine','myself'],my:['my','mine'],your:['your','yours'],this:['this','these'],that:['that','those']};
+const BE={is:['is','are','am','was','were','be','been','being'],are:['are','is','am','were','be'],am:['am','is','are','was'],was:['was','were','is','be'],have:['have','has','had','having'],do:['do','does','did','doing','done'],can:['can','could','can\'t'],will:['will','would','won\'t'],"don't":["don't","doesn't","didn't"]};
+const PP={go:'gone',eat:'eaten',see:'seen',do:'done',take:'taken',give:'given',write:'written',ride:'ridden',fall:'fallen',break:'broken',drink:'drunk',swim:'swum',sing:'sung',know:'known',throw:'thrown',fly:'flown',hide:'hidden',bite:'bitten',drive:'driven',wear:'worn'};
+function formsOf(d){const w=d.en,lw=w.toLowerCase();if(/\s/.test(w))return null;
+  if(PRON[lw])return PRON[lw];if(BE[lw])return BE[lw];
+  if(d.type==='verb'){const a=[w,inflect(w,'s'),inflect(w,'ing'),inflect(w,'ed')];if(PP[lw])a.push(PP[lw]);a.push('to '+w);return [...new Set(a)]}
+  if(d.type==='desc')return [...new Set([w,inflect(w,'er'),inflect(w,'est'),'too '+w,'not '+w])];
+  if(d.type==='noun')return [...new Set([w,inflect(w,'s'),w+"'s",'the '+w,'a '+w])];
+  return null}
+function closeForms(){const f=document.querySelector('.forms');if(f)f.remove()}
+function showForms(d,el){if(editing||d.folder)return;const list=formsOf(d);if(!list){toast('No other forms for this word');return}closeForms();
+  const p=document.createElement('div');p.className='forms';p.setAttribute('role','dialog');p.setAttribute('aria-label','Word forms for '+d.en);
+  const col=getComputedStyle(el).getPropertyValue('--c');
+  list.forEach(t=>{const b=document.createElement('button');b.type='button';b.style.setProperty('--c',col||'#fff');b.innerHTML=(d.symf?'<img src="'+symURL(d.symf)+'" alt="">':'')+'<span>'+esc(t)+'</span>';
+    b.onclick=()=>{closeForms();sentence.push({text:t,sym:d.sym,symf:d.symf,img:d.img,lang:'en',en:d.en});renderStrip();if(S().each==='1')say(t,'en');if(S().usage==='1'){store.usage[t]=(store.usage[t]||0)+1;save()}if(board!=='home'&&!board.startsWith('q_')&&S().stay!=='1')setTimeout(()=>go('home'),250)};p.appendChild(b)});
+  const x=document.createElement('button');x.type='button';x.className='fx';x.textContent='Close';x.onclick=closeForms;p.appendChild(x);
+  document.body.appendChild(p);const r=el.getBoundingClientRect();const pw=p.offsetWidth,ph=p.offsetHeight;
+  p.style.left=Math.max(6,Math.min(innerWidth-pw-6,r.left+r.width/2-pw/2))+'px';p.style.top=Math.max(6,Math.min(innerHeight-ph-6,r.top-ph-6<0?r.bottom+6:r.top-ph-6))+'px'}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.forms'))closeForms()});
+/* --- big display + copy --- */
+function openBig(){if(!sentence.length){toast('Put words in the message first');return}
+  $('bigBody').innerHTML=sentence.map(w=>'<div class="bigW">'+(w.img?'<img src="'+w.img+'" alt="">':w.symf?'<img src="'+symURL(w.symf)+'" alt="">':'')+'<span>'+esc(w.text)+'</span></div>').join('');$('bigDlg').showModal()}
+$('bigBtn').onclick=openBig;$('bigClose').onclick=()=>$('bigDlg').close();$('bigFlip').onclick=()=>$('bigDlg').classList.toggle('flip');$('bigSay').onclick=speakSentence;
+$('copyBtn').onclick=async()=>{const t=sentence.map(w=>w.text).join(' ');if(!t){toast('Message is empty');return}
+  try{if(navigator.share&&matchMedia('(pointer:coarse)').matches){await navigator.share({text:t})}else{await navigator.clipboard.writeText(t);toast('Copied: '+t)}}catch(e){toast('Could not copy')}};
+/* --- tools --- */
+let tool=null,timerEnd=0,timerTot=0,timerT=null,schedDone={},sceneCur=null,sceneAdd=false;
+const TI={ft:'<svg viewBox="0 0 48 48"><rect x="3" y="10" width="19" height="28" rx="3" fill="#43a047"/><rect x="26" y="10" width="19" height="28" rx="3" fill="#1e88e5"/><text x="12.5" y="29" font-size="13" text-anchor="middle" fill="#fff" font-weight="700">1</text><text x="35.5" y="29" font-size="13" text-anchor="middle" fill="#fff" font-weight="700">2</text></svg>',
+ timer:'<svg viewBox="0 0 48 48"><circle cx="24" cy="26" r="18" fill="#fff" stroke="#000" stroke-width="3"/><path d="M24 26V8A18 18 0 0 1 41 32z" fill="#e53935"/><rect x="20" y="2" width="8" height="5" fill="#000"/></svg>',
+ sched:'<svg viewBox="0 0 48 48"><rect x="6" y="5" width="36" height="38" rx="3" fill="#fff" stroke="#000" stroke-width="3"/><path d="M12 15l3 3 5-6M12 27l3 3 5-6" stroke="#43a047" stroke-width="3" fill="none"/><path d="M24 16h12M24 28h12M14 38h22" stroke="#000" stroke-width="3"/></svg>',
+ choice:'<svg viewBox="0 0 48 48"><rect x="3" y="12" width="19" height="24" rx="3" fill="#ffb74d" stroke="#000" stroke-width="2"/><rect x="26" y="12" width="19" height="24" rx="3" fill="#ba68c8" stroke="#000" stroke-width="2"/><text x="24" y="29" font-size="12" text-anchor="middle" font-weight="700">or</text></svg>',
+ scenes:'<svg viewBox="0 0 48 48"><rect x="3" y="8" width="42" height="32" rx="3" fill="#90caf9" stroke="#000" stroke-width="3"/><path d="M5 38l12-14 9 10 6-6 11 10z" fill="#43a047"/><circle cx="35" cy="17" r="4" fill="#fdd835"/><circle cx="17" cy="26" r="5" fill="none" stroke="#ffeb3b" stroke-width="3"/></svg>',
+ big:'<svg viewBox="0 0 48 48"><rect x="3" y="8" width="42" height="32" rx="3" fill="#fff" stroke="#000" stroke-width="3"/><text x="24" y="31" font-size="18" text-anchor="middle" font-weight="900">Aa</text></svg>'};
+function msgWords(){return sentence.filter(w=>w.text)}
+function wImg(w){return w.img?'<img src="'+w.img+'" alt="">':w.symf?'<img src="'+symURL(w.symf)+'" alt="">':''}
+function toolTop(g,title,extra){const t=document.createElement('div');t.className='toolTop';t.innerHTML='<button class="btn" type="button" data-tb>Back to tools</button><h2>'+esc(title)+'</h2>'+(extra||'');t.querySelector('[data-tb]').onclick=()=>{tool=null;render()};g.appendChild(t);return t}
+function renderTools(g){g.style.setProperty('--cols',1);g.classList.remove('fit');g.style.gridTemplateRows='';g.style.gridAutoRows='';
+  if(!tool){const w=document.createElement('div');w.className='tools';
+    [['ft','First / Then'],['timer','Visual timer'],['sched','Schedule'],['choice','Choice board'],['scenes','Photo scenes'],['big','Big text']].forEach(([k,n])=>{const b=document.createElement('button');b.className='tool';b.type='button';b.innerHTML=TI[k]+'<span>'+n+'</span>';b.onclick=()=>{if(k==='big'){openBig();return}tool=k;render()};w.appendChild(b)});
+    const n=document.createElement('p');n.className='note';n.style.cssText='grid-column:1/-1;color:inherit';n.textContent='First / Then, Schedule, and Choice board use the words in the message bar. Example: tap "eat" then "play", then open First / Then.';w.appendChild(n);g.appendChild(w);return}
+  const m=msgWords();
+  if(tool==='ft'){toolTop(g,'First / Then');if(m.length<2){g.insertAdjacentHTML('beforeend','<p class="tleft" style="font-size:22px">Put 2 words in the message bar first, like "eat" and "play".</p>');return}
+    const f=document.createElement('div');f.className='ft';[['First',m[0]],['Then',m[1]]].forEach(([h,w])=>{const b=document.createElement('button');b.className='ftp';b.type='button';b.innerHTML='<span class="h">'+h+'</span>'+wImg(w)+'<span class="w">'+esc(w.text)+'</span>';b.onclick=()=>say(h.toLowerCase()+' '+w.text,'en');f.appendChild(b)});g.appendChild(f);return}
+  if(tool==='timer'){const t=toolTop(g,'Visual timer',[1,2,3,5,10,15].map(n=>'<button class="btn" type="button" data-min="'+n+'">'+n+' min</button>').join('')+'<button class="btn warn" type="button" data-min="0">Stop</button>');
+    t.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{const n=+b.dataset.min;clearInterval(timerT);if(!n){timerEnd=0;render();return}timerTot=n*60000;timerEnd=Date.now()+timerTot;timerT=setInterval(tick,250);render()});
+    const w=document.createElement('div');w.className='timer';w.innerHTML='<div class="ring" id="ring"></div><div class="tleft" id="tleft"></div>';g.appendChild(w);tick();return}
+  if(tool==='sched'){toolTop(g,'Schedule','<button class="btn" type="button" id="schReset">Start over</button>');$('schReset').onclick=()=>{schedDone={};render()};
+    if(!m.length){g.insertAdjacentHTML('beforeend','<p class="tleft" style="font-size:22px">Tap the steps in order, like "bathroom", "wash hands", "eat". Then open Schedule.</p>');return}
+    const s=document.createElement('div');s.className='sched';m.forEach((w,i)=>{const b=document.createElement('button');b.type='button';b.className='step2'+(schedDone[i]?' done':'');b.innerHTML='<span class="n">'+(i+1)+'</span>'+wImg(w)+'<span>'+esc(w.text)+'</span>';
+      b.onclick=()=>{schedDone[i]=!schedDone[i];if(schedDone[i])say(w.text+', done','en');else say(w.text,'en');render()};s.appendChild(b)});g.appendChild(s);return}
+  if(tool==='choice'){toolTop(g,'Choice board');if(m.length<2){g.insertAdjacentHTML('beforeend','<p class="tleft" style="font-size:22px">Put 2 to 4 choices in the message bar, like "juice" and "milk".</p>');return}
+    const c=document.createElement('div');c.className='choice';const ch=m.slice(0,4);c.style.setProperty('--n',ch.length);ch.forEach(w=>{const b=document.createElement('button');b.type='button';b.className='ftp';b.innerHTML=wImg(w)+'<span class="w">'+esc(w.text)+'</span>';b.onclick=()=>say('I choose '+w.text,'en');c.appendChild(b)});g.appendChild(c);return}
+  if(tool==='scenes'){renderScenes(g)}}
+function tick(){const r=$('ring'),l=$('tleft');if(!timerEnd){if(r)r.style.setProperty('--p',0);if(l)l.textContent='Pick a time';return}
+  const left=Math.max(0,timerEnd-Date.now());if(r)r.style.setProperty('--p',left/timerTot);const sec=Math.ceil(left/1000);if(l)l.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+  if(left<=0){clearInterval(timerT);timerEnd=0;beep();setTimeout(()=>say('all done','en'),500);if(l)l.textContent='All done'}}
+function beep(){try{const A=new (window.AudioContext||window.webkitAudioContext)();[0,.2,.4].forEach(t=>{const o=A.createOscillator(),g=A.createGain();o.frequency.value=880;g.gain.setValueAtTime(.25,A.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,A.currentTime+t+.18);o.connect(g).connect(A.destination);o.start(A.currentTime+t);o.stop(A.currentTime+t+.2)})}catch(e){}}
+/* photo scenes (visual scene display) */
+function renderScenes(g){store.scenes=store.scenes||[];
+  if(sceneCur===null){const t=toolTop(g,'Photo scenes','<label class="btn pri" style="cursor:pointer">New scene from a photo<input type="file" accept="image/*" id="scFile" hidden></label>');
+    $('scFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const img=await shrink(f,1000);if(!img)return;store.scenes.push({id:'s'+Date.now(),img,spots:[]});save();sceneCur=store.scenes.length-1;sceneAdd=true;render()};
+    if(!store.scenes.length){g.insertAdjacentHTML('beforeend','<p class="tleft" style="font-size:20px">Take a photo of a real place, like the kitchen or the playground. Then tap spots on the photo and name them. Tapping a spot says the word.</p>');return}
+    const l=document.createElement('div');l.className='sceneList';store.scenes.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.innerHTML='<img src="'+s.img+'" alt="">'+s.spots.length+' spots';b.onclick=()=>{sceneCur=i;sceneAdd=false;render()};l.appendChild(b)});g.appendChild(l);return}
+  const s=store.scenes[sceneCur];if(!s){sceneCur=null;render();return}
+  const t=toolTop(g,'Photo scene','<button class="btn'+(sceneAdd?' pri':'')+'" type="button" id="scAdd">'+(sceneAdd?'Adding spots: tap the photo':'Add spots')+'</button><input id="scWord" placeholder="Word for the next spot" maxlength="30"><button class="btn" type="button" id="scList">All scenes</button><button class="btn warn" type="button" id="scDel">Delete scene</button>');
+  t.querySelector('[data-tb]').onclick=()=>{sceneCur=null;tool=null;render()};
+  $('scAdd').onclick=()=>{sceneAdd=!sceneAdd;render()};$('scList').onclick=()=>{sceneCur=null;render()};
+  $('scDel').onclick=e=>confirm2(e.currentTarget,'Delete scene',()=>{store.scenes.splice(sceneCur,1);save();sceneCur=null;render()});
+  const w=document.createElement('div');w.className='scene';w.innerHTML='<img src="'+s.img+'" alt="Scene photo">';
+  s.spots.forEach((p,i)=>{const b=document.createElement('button');b.type='button';b.className='hot';b.style.left=p.x+'%';b.style.top=p.y+'%';b.textContent=p.w;
+    b.onclick=e=>{e.stopPropagation();if(sceneAdd){s.spots.splice(i,1);save();render();return}say(p.w,'en');sentence.push({text:p.w,sym:'',img:null,lang:'en',en:p.w});renderStrip()};w.appendChild(b)});
+  w.querySelector('img').onclick=e=>{if(!sceneAdd)return;const word=$('scWord').value.trim();if(!word){toast('Type the word for this spot first');$('scWord').focus();return}
+    const r=e.currentTarget.getBoundingClientRect();s.spots.push({x:+((e.clientX-r.left)/r.width*100).toFixed(1),y:+((e.clientY-r.top)/r.height*100).toFixed(1),w:word});save();render();setTimeout(()=>{$('scWord')&&$('scWord').focus()},0)};
+  g.appendChild(w);if(sceneAdd)g.insertAdjacentHTML('beforeend','<p class="tleft" style="font-size:16px">Type a word, then tap where it is in the photo. Tap a spot again to remove it. Press "Adding spots" to finish.</p>')}
+$('toolsBtn').onclick=()=>{tool=null;go('tools')};
+
+applyTheme();applyLook();langLabel();render();renderStrip();startScan();
+
+window.__sayboard={go,get sentence(){return sentence},store};
+})();
+</script>
+</body>
+</html>
