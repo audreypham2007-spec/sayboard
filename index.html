@@ -50,6 +50,20 @@ button{cursor:pointer}
 :root[data-pal="soft"]{--pron:#fffbe3;--verb:#e7f8e3;--desc:#e6f0ff;--noun:#fff0e0;--social:#ffe8f3;--q:#f2ebff;--folder:#eef1f4}
 :root[data-pal="candy"]{--pron:#fff59d;--verb:#b9f6ca;--desc:#b3e5fc;--noun:#ffccbc;--social:#f8bbd0;--q:#d1c4e9;--folder:#ffe0b2}
 :root[data-pal="candy"] body,:root[data-pal="candy"] .gridWrap{background:#fdf3ff}
+/* Rainbow: the colorful scheme for elementary classrooms. Word-type colors keep their meaning; every folder gets its own color. */
+:root[data-pal="rainbow"]{--pron:#ffe04a;--verb:#8fe07a;--desc:#7cc4ff;--noun:#ffb057;--social:#ff97cf;--q:#c4a3ff;--folder:#cfd8dc}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]){--radius:12px}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) body,:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .gridWrap{background:#e9f4ff}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) body.tinted .gridWrap{background:color-mix(in srgb,var(--bc) 24%,#fff)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .stripRow{background:linear-gradient(90deg,#ffd6e6,#ffe6c2,#fff4b8,#d6f3cc,#cbe8ff,#e2d6ff)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .bar{background:#fff8e6}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .tb[data-c]{background:color-mix(in srgb,var(--icc) 16%,#fff);border-color:color-mix(in srgb,var(--icc) 55%,#fff)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .tb[data-c].on{background:var(--icc);border-color:var(--icc);color:#fff}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .cell:not(.empty){border-color:color-mix(in srgb,var(--c,#fff) 55%,#333);box-shadow:0 3px 0 color-mix(in srgb,var(--c,#ccc) 62%,#444)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .cell.folder{--c:var(--fc,var(--folder));background:var(--fc,var(--folder))}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) .cell.folder::before{background:color-mix(in srgb,var(--fc,#5f6b76) 58%,#222)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) body.tinted .cell.back{--c:var(--bc);background:var(--bc)}
+:root[data-pal="rainbow"]:not([data-theme="dark"]):not([data-theme="contrast"]) body.tinted .crumb{background:var(--bc);border-radius:999px;padding:3px 12px;border:1.5px solid color-mix(in srgb,var(--bc) 55%,#333)}
 .step{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:#ff2b2b;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
 .wotw{position:absolute;top:2px;left:5px;color:#f5a400;font-size:20px;text-shadow:0 0 2px #fff}
 .chk{display:flex;gap:6px;align-items:center;font-weight:400}.banner .chk input{flex:0 0 auto;min-width:0;width:20px;height:20px}
@@ -310,7 +324,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
   <p class="note" id="voiceNote"></p>
   <h3>Touch and look</h3>
   <div class="form">
-    <label>Button colors<select id="sPal"><option value="classic">Classic</option><option value="bright">Bright</option><option value="soft">Soft pastel</option><option value="candy">Candy</option></select></label>
+    <label>Button colors<select id="sPal"><option value="rainbow">Rainbow (colorful)</option><option value="classic">Classic</option><option value="bright">Bright</option><option value="soft">Soft pastel</option><option value="candy">Candy</option></select></label>
     <label>Word of the week (gets a star)<input id="sWotw" maxlength="30" placeholder="for example: more"></label>
     <label>Theme<select id="sTheme"><option value="device">Device (light)</option><option value="light">Light</option><option value="dark">Dark</option><option value="contrast">High contrast</option></select></label>
     <label>Button style<select id="sBstyle"><option value="fill">Filled color</option><option value="border">White with colored border</option><option value="band">White with color band</option></select></label>
@@ -350,8 +364,9 @@ const LANG2={none:{name:'',code:''},es:{name:'Spanish',code:'es'},vi:{name:'Viet
 /* ---------- storage ---------- */
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
 let store=load();
-store.settings=Object.assign({l2:'none',show:'both',voiceEn:'',voiceL2:'',rate:'0.85',each:'1',theme:'light',dwell:'0',cols:'10',pin:'1234',usage:'1',speakLang:'en',scan:'0',stay:'0',pal:'classic',wotw:'',core:'80',vb:'off',vbList:'',bstyle:'fill',lbl:'top',sym:'both',tsize:'1',pitch:'1',vol:'1',clr:'0'},store.settings||{});
+store.settings=Object.assign({l2:'none',show:'both',voiceEn:'',voiceL2:'',rate:'0.85',each:'1',theme:'light',dwell:'0',cols:'10',pin:'1234',usage:'1',speakLang:'en',scan:'0',stay:'0',pal:'rainbow',wotw:'',core:'80',vb:'off',vbList:'',bstyle:'fill',lbl:'top',sym:'both',tsize:'1',pitch:'1',vol:'1',clr:'0'},store.settings||{});
 if(!store.v7){store.settings.theme='device';store.v7=1}
+if(!store.settings.look8){store.settings.look8=1;if(store.settings.pal==='classic')store.settings.pal='rainbow'} // one-time switch to the colorful scheme; Classic is still in Menu
 store.custom=store.custom||{};   // id -> {en,l2,sym,type,img,hidden} or {deleted:true}
 store.added=store.added||{};     // boardId -> [{id,en,l2,sym,type,img}]
 store.usage=store.usage||{};
@@ -365,6 +380,8 @@ const CORE_ID={'40':'home40','80':'home','120':'home120'}[store.settings.core]||
 const CORE_COLS={'40':8,'80':10,'120':12}[store.settings.core]||10,CORE_ROWS={'40':5,'80':8,'120':10}[store.settings.core]||8;
 for(const id0 of V.order){if(id0==='home40'||id0==='home120')continue;const src=id0==='home'?CORE_ID:id0;const bd=V.boards[src];const id=id0;NAMES[id]=bd.name;
   BASE[id]=bd.items.map((r,i)=>({id:src+':'+i,en:r[0],es:r[1],vi:r[2],type:r[3]==='folder'?'folder':r[3],emo:r[4],symf:r[5]||null,folder:r[6]||null}))}
+const FOLDER_COLORS=['#ff9d94','#ffbe6b','#ffe26a','#cdea6e','#8fdf97','#79dcc9','#84cdff','#a3b4ff','#c9a4ff','#ff9fd6','#e6b3ff'];
+function folderColor(id){const i=V.order.indexOf(id);return FOLDER_COLORS[(i<0?0:i)%FOLDER_COLORS.length]}
 function boardName(id){const n=NAMES[id];if(!n)return'';const l2=S().l2;return S().show==='l2'&&l2!=='none'?n[l2==='es'?1:2]:n[0]}
 function btnData(b){const c=store.custom[b.id]||{};if(c.deleted)return null;
   const l2key=S().l2;return{id:b.id,en:c.en??b.en,l2:c.l2??(l2key!=='none'?b[l2key]:''),sym:c.sym??b.emo,symf:c.sym?null:b.symf,type:c.type??b.type,img:c.img||null,hidden:!!c.hidden,folder:b.folder||null}}
@@ -404,6 +421,7 @@ function render(){
   const fit=board!=='kbd'&&board!=='hist'&&board!=='tools'&&+S().cols===10;closeForms();g.classList.toggle('fit',fit);
   $('toolsBtn').classList.toggle('on',board==='tools');$('crumb').textContent=board==='home'?'':board==='tools'?'Tools':board==='kbd'?'Keyboard':board==='hist'?'Recent':boardName(board);
   $('homeBtn').classList.toggle('on',board==='home');
+  {const isF=!!BASE[board]&&board!=='home'&&!board.startsWith('q_');document.body.classList.toggle('tinted',isF);if(isF)document.body.style.setProperty('--bc',folderColor(board));else document.body.style.removeProperty('--bc')}
   document.querySelectorAll('[data-quick]').forEach(b=>b.classList.toggle('on','q_'+b.dataset.quick===board));
   $('kbBtn').classList.toggle('on',board==='kbd');$('histBtn').classList.toggle('on',board==='hist');
   if(board==='kbd'){renderKbd(g);return}
@@ -417,7 +435,7 @@ function render(){
   items.forEach((d,i)=>{
     const b=document.createElement('button');
     if(!d){b.className='cell empty';b.innerHTML='<span class="t">+</span>';b.setAttribute('aria-label','Empty spot');if(editing)bindTap(b,()=>openEdit(null,board,i));else b.disabled=true;g.appendChild(b);return}
-    b.className='cell t-'+(d.folder?'folder folder':d.type)+(d.hidden?' masked':'')+(vbs&&!d.folder&&!vbs.has(d.en.toLowerCase())?' vbmask':'');b.dataset.id=d.id;b.innerHTML=cellHTML(d);
+    b.className='cell t-'+(d.folder?'folder folder':d.type)+(d.hidden?' masked':'')+(vbs&&!d.folder&&!vbs.has(d.en.toLowerCase())?' vbmask':'');b.dataset.id=d.id;b.innerHTML=cellHTML(d);if(d.folder)b.style.setProperty('--fc',folderColor(d.folder));
     b.setAttribute('aria-label',(d.folder?'Folder: ':'')+labelFor(d).filter(Boolean).join(', '));
     if(findTarget&&(findTarget.id===d.id||(d.folder&&findTarget.path&&findTarget.path.includes(d.folder)))){b.classList.add('hl');const n=findTarget.id===d.id?(findTarget.path.length+1):(findTarget.path.indexOf(d.folder)+1);b.insertAdjacentHTML('beforeend','<span class="step">'+n+'</span>')}
     const wk=(S().wotw||'').trim().toLowerCase();if(wk&&!d.folder&&(d.en.toLowerCase()===wk||(d.l2||'').toLowerCase()===wk))b.insertAdjacentHTML('beforeend','<span class="wotw" title="Word of the week">★</span>');

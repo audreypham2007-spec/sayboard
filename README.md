@@ -21,7 +21,7 @@ Dedicated AAC devices and apps are expensive, and many families wait months for 
   - Partner taps: adult taps speak but stay out of the child's message.
   - "Try modeling next" suggestions expand the child's last word (more becomes "want more", "more juice").
   - A daily count of words modeled, a starred word of the week, and rotating caregiver tips.
-- **Button color schemes:** Classic, Bright, Soft pastel, and Candy, plus dark and high contrast themes.
+- **Button color schemes:** Rainbow (the colorful default: brighter word-type colors, a different color for every folder, and each board tinted to match its folder), Classic, Bright, Soft pastel, and Candy, plus dark and high contrast themes.
 - **Color by word type.** People words, actions, describing words, things, social words, and questions each have a color band, plus text labels for colorblind users.
 - **Sentence strip.** Tap words to build a sentence, tap the strip to speak it.
 - **Two languages.** Add Spanish or Vietnamese labels on every button. Switch the spoken language with one tap. Mixing languages in one sentence is allowed.
